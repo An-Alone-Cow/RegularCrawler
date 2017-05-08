@@ -3,10 +3,17 @@ import scrapy
 class ReLister ( scrapy.Spider ):
 	name = "regularLister"
 
-	__myRegexList = [];
-	__urlDepth = {};
+	def __init__ ( self, *args, **kwargs ):
+		super ().__init__( *args, **kwargs )
 
-	def fixUrl ( url ):
+		self.__urlDepth__ = {}
+		with open ( 'reg.ex', 'r' ) as f:
+			self.__myRegexList__ = list (filter ( lambda x : x.strip () != '', (reg.strip () for reg in f ) ))
+
+		with open ( 'log', 'a' ) as f:
+			f.write ( "regexlist = " + str ( self.__myRegexList__ ) + '\n\n' )
+
+	def fixUrl ( self, url ):
 		if ( url == '' ):
 			return ''
 
@@ -36,34 +43,50 @@ class ReLister ( scrapy.Spider ):
 
 	def start_requests(self):
 		with open ( 'urls.lst', 'r' ) as f:
-			urls = [(url.strip () for url in f)]
-
-		with open ( 'reg.ex', 'r' ) as f:
-			__myRegexList = [(reg.strip () for reg in f )]
+			urls = list (url.strip () for url in f)
 
 		for url in urls:
-			url = fixUrl ( url )
-			__urlDepth [ url ] = 0
+			url = self.fixUrl ( url )
+			self.__urlDepth__ [ url ] = 0
 			yield scrapy.Request ( url, callback = self.parse )
 
 	def parse(self, response):
-		url = response.meta [ 'redirect_urls' ][0]
-		depth = __urlDepth [ url ]
+		if ( 'redirect_urls' in response.meta ):
+			url = response.meta [ 'redirect_urls' ][0]
+		else:
+			url = response.url
+		depth = self.__urlDepth__ [ url ]
+		depthLim = len ( self.__myRegexList__ )
 
-		if ( depth == len ( __myRegexList ) ):
+		with open ( 'log', 'a' ) as f:
+			f.write ( "crawler parse\n" )
+			f.write ( "url = " + response.url + '\n' )
+			f.write ( "meta = " + str ( response.meta ) + '\n\n' )
+
+		if ( depth == len ( self.__myRegexList__ ) ):
 			with open ( 'result', 'a' ) as f:
 				f.write ( url + '\n' )
 
 			return
 
-		regex = __myRegexList [ depth ]
-		urls = [(url for url in response.css ( 'a::attr(href)' ).re ( regex ))]
+		regex = self.__myRegexList__ [ depth ]
+		urls = list(url for url in response.css ( 'a::attr(href)' ).re ( regex ))
 
-		for nUrl in urls:
-			nUrl = fixUrl ( nUrl )
+		if ( depth == depthLim - 1 ):
+			with open ( 'result', 'a' ) as f:
+				for nUrl in urls:
+					nUrl = self.fixUrl ( nUrl )
 
-			if ( nUrl in __urlDepth )
-				continue
+					if ( nUrl in self.__urlDepth__ ):
+						continue
 
-			__urlDepth [ nUrl ] = depth + 1
-			yield scrapt.Request ( nUrl, callback = self.parse )
+					f.write ( nUrl + '\n' )
+		else:
+			for nUrl in urls:
+				nUrl = self.fixUrl ( nUrl )
+
+				if ( nUrl in self.__urlDepth__ ):
+					continue
+
+				self.__urlDepth__ [ nUrl ] = depth + 1
+				yield scrapy.Request ( nUrl, callback = self.parse )
