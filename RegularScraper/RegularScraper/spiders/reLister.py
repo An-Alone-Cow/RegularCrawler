@@ -1,5 +1,38 @@
 import scrapy
 
+def addHttp ( url ):
+	if ( url == '' ):
+		return ''
+
+	if ( url [ 0 ] != 'h' ):
+		url = 'h' + url
+
+	if ( url [ 1 ] != 't' ):
+		url = 'ht' + url [1:]
+
+	if ( url [ 2 ] != 't' ):
+		url = 'htt' + url [2:]
+
+	if ( url [ 3 ] != 'p' ):
+		url = 'http' + url [3:]
+
+	if ( url [ 4 ] != ':' ):
+		url = 'http:' + url [4:]
+
+	if ( url [ 5 ] != '/' ):
+		url = 'http:/' + url [5:]
+
+	if ( url [ 6 ] != '/' ):
+		url = 'http://' + url [6:]
+
+	return url
+
+def absolutizeUrl ( response, url ):
+	if ( url.split ( '/' )[ 0 ].find ( '.' ) != -1 and url [ 0 ] != '.' ):
+		return addHttp ( url )
+
+	return response.urljoin ( url )
+
 class ReLister ( scrapy.Spider ):
 	name = "regularLister"
 
@@ -13,32 +46,6 @@ class ReLister ( scrapy.Spider ):
 		with open ( 'log', 'a' ) as f:
 			f.write ( "regexlist = " + str ( self.__myRegexList__ ) + '\n\n' )
 
-	def fixUrl ( self, url ):
-		if ( url == '' ):
-			return ''
-
-		if ( url [ 0 ] != 'h' ):
-			url = 'h' + url
-
-		if ( url [ 1 ] != 't' ):
-			url = 'ht' + url [1:]
-
-		if ( url [ 2 ] != 't' ):
-			url = 'htt' + url [2:]
-
-		if ( url [ 3 ] != 'p' ):
-			url = 'http' + url [3:]
-
-		if ( url [ 4 ] != ':' ):
-			url = 'http:' + url [4:]
-
-		if ( url [ 5 ] != '/' ):
-			url = 'http:/' + url [5:]
-
-		if ( url [ 6 ] != '/' ):
-			url = 'http://' + url [6:]
-
-		return url
 
 
 	def start_requests(self):
@@ -46,7 +53,7 @@ class ReLister ( scrapy.Spider ):
 			urls = list (url.strip () for url in f)
 
 		for url in urls:
-			url = self.fixUrl ( url )
+			url = addHttp ( url )
 			self.__urlDepth__ [ url ] = 0
 			yield scrapy.Request ( url, callback = self.parse )
 
@@ -75,7 +82,7 @@ class ReLister ( scrapy.Spider ):
 		if ( depth == depthLim - 1 ):
 			with open ( 'result', 'a' ) as f:
 				for nUrl in urls:
-					nUrl = self.fixUrl ( nUrl )
+					nUrl = addHttp ( absolutizeUrl ( response, nUrl ) )
 
 					if ( nUrl in self.__urlDepth__ ):
 						continue
@@ -83,7 +90,7 @@ class ReLister ( scrapy.Spider ):
 					f.write ( nUrl + '\n' )
 		else:
 			for nUrl in urls:
-				nUrl = self.fixUrl ( nUrl )
+				nUrl = addHttp ( absolutizeUrl ( nUrl ) )
 
 				if ( nUrl in self.__urlDepth__ ):
 					continue
